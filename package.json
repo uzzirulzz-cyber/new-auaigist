@@ -4,13 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "export $(grep -E '^(DATABASE_URL|JWT_SECRET|JWT_EXPIRES_IN)' .env | sed 's/\"//g') && next dev -p 3000 2>&1 | tee dev.log",
-    "build": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
+    "build": "prisma generate && next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
     "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
     "db:push": "export $(grep -E '^DATABASE_URL=' .env | sed 's/\"//g') && prisma db push --accept-data-loss",
     "db:generate": "export $(grep -E '^DATABASE_URL=' .env | sed 's/\"//g') && prisma generate",
     "db:migrate": "export $(grep -E '^DATABASE_URL=' .env | sed 's/\"//g') && prisma migrate dev",
-    "db:reset": "export $(grep -E '^DATABASE_URL=' .env | sed 's/\"//g') && prisma migrate reset"
+    "db:reset": "export $(grep -E '^DATABASE_URL=' .env | sed 's/\"//g') && prisma migrate reset",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
