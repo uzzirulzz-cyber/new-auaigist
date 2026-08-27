@@ -5,6 +5,9 @@ import Link from 'next/link'
 import {
   ShoppingCart,
   Search,
+  Heart,
+  UserRound,
+  Menu,
   Loader2,
   Plus,
   Minus,
@@ -29,6 +32,12 @@ import {
   Layers,
   ArrowUpRight,
   Globe,
+  MessageCircle,
+  Mail,
+  Send,
+  SlidersHorizontal,
+  Eye,
+  ChevronRight,
   type LucideIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -163,6 +172,10 @@ export function Storefront() {
   const [currency, setCurrency] = useState<CurrencyCode>('PKR')
   const [currencyOpen, setCurrencyOpen] = useState(false)
   const [showAllProducts, setShowAllProducts] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [wishlist, setWishlist] = useState<string[]>([])
+  const [quickView, setQuickView] = useState<StoreProduct | null>(null)
+  const [sort, setSort] = useState('featured')
 
   useEffect(() => {
     try {
@@ -221,6 +234,19 @@ export function Storefront() {
     }
   }, [cart])
 
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('pb_wishlist')
+      if (saved) setWishlist(JSON.parse(saved))
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  useEffect(() => {
+    try { localStorage.setItem('pb_wishlist', JSON.stringify(wishlist)) } catch { /* ignore */ }
+  }, [wishlist])
+
   const cartTotalUSD = cart.reduce((s, c) => s + c.price * c.qty, 0)
   const cartCount = cart.reduce((s, c) => s + c.qty, 0)
 
@@ -253,6 +279,21 @@ export function Storefront() {
     setCart((prev) => prev.filter((c) => c.id !== id))
   }
 
+  function toggleWishlist(id: string) {
+    setWishlist((prev) => prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id])
+    toast.success(wishlist.includes(id) ? 'Removed from wishlist' : 'Saved to wishlist')
+  }
+
+  function addByName(name: string) {
+    const product = products.find((item) => item.name.toLowerCase().includes(name.toLowerCase()))
+    if (product) addToCart(product)
+    else {
+      setSearch(name)
+      document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' })
+      toast.info(`Showing results for ${name}`)
+    }
+  }
+
   async function handleCheckout(name: string, email: string) {
     setSubmitting(true)
     try {
@@ -282,15 +323,21 @@ export function Storefront() {
     }
   }
 
-  const displayedProducts = showAllProducts ? products : products.slice(0, 8)
+  const sortedProducts = [...products].sort((a, b) => {
+    if (sort === 'price-low') return a.price - b.price
+    if (sort === 'price-high') return b.price - a.price
+    if (sort === 'availability') return Number(b.stock > 0) - Number(a.stock > 0)
+    return 0
+  })
+  const displayedProducts = showAllProducts ? sortedProducts : sortedProducts.slice(0, 8)
 
   return (
-    <div className="relative min-h-screen bg-[#050608] text-slate-200">
+    <div className="storefront-shell relative min-h-screen bg-[#050b16] text-slate-200">
       {/* Background */}
       <div className="pointer-events-none fixed inset-0 opacity-30" style={{ backgroundImage: 'linear-gradient(rgba(96,165,250,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(96,165,250,0.04) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
 
       {/* Top announcement bar */}
-      <div className="relative z-20 bg-gradient-to-r from-blue-600 via-violet-600 to-blue-600 text-white">
+      <div className="relative z-20 bg-gradient-to-r from-[#142844] via-[#54718d] to-[#142844] text-white">
         <div className="mx-auto flex max-w-7xl items-center justify-center gap-2 px-4 py-1.5 text-center text-[11px] font-medium lg:text-xs">
           <Flame className="h-3 w-3 shrink-0 animate-pulse-soft" />
           <span>
@@ -301,7 +348,7 @@ export function Storefront() {
       </div>
 
       {/* Header */}
-      <header className="sticky top-0 z-30 border-b border-white/5 bg-[#050608]/95 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 border-b border-white/10 bg-[#081426]/90 shadow-[0_12px_40px_rgba(2,12,30,.35)] backdrop-blur-2xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 lg:px-6">
           <Link href="/" className="flex items-center gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-white">
@@ -318,7 +365,15 @@ export function Storefront() {
             </div>
           </Link>
 
-          <div className="relative hidden flex-1 max-w-md md:block">
+          <nav className="hidden items-center gap-1 xl:flex" aria-label="Primary navigation">
+            {['Home', 'AI & Productivity', 'Video Editing', 'Gift Cards', 'SVG', 'Streaming Accounts', 'IPTV', 'Smart Projectors', 'All Products'].map((item) => (
+              <a key={item} href={item === 'Home' ? '#' : '#products'} onClick={() => item !== 'Home' && setCategory(item === 'All Products' ? 'all' : item)} className="rounded-lg px-2 py-2 text-[11px] font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white">
+                {item}
+              </a>
+            ))}
+          </nav>
+
+          <div className="relative hidden max-w-xs flex-1 md:block">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
             <input
               type="text"
@@ -330,10 +385,12 @@ export function Storefront() {
           </div>
 
           <div className="flex items-center gap-2">
+            <a href="/login" aria-label="Customer account" className="hidden rounded-xl border border-white/10 bg-white/5 p-2 text-slate-300 transition hover:bg-white/10 hover:text-white sm:block"><UserRound className="h-4 w-4" /></a>
+            <button aria-label="Open menu" onClick={() => setMobileMenuOpen((v) => !v)} className="rounded-xl border border-white/10 bg-white/5 p-2 text-slate-200 xl:hidden"><Menu className="h-4 w-4" /></button>
             <div className="relative">
               <button
                 onClick={() => setCurrencyOpen((v) => !v)}
-                className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/10"
+                className="hidden items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/10 sm:flex"
               >
                 <span className="text-blue-400">{currency}</span>
                 <ChevronDown className="h-3 w-3 text-slate-400" />
@@ -359,7 +416,7 @@ export function Storefront() {
 
             <button
               onClick={() => setCartOpen(true)}
-              className="relative inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 px-3.5 py-2 text-sm font-bold text-white shadow-lg shadow-blue-500/25 transition hover:brightness-105"
+              className="relative inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#315b85] to-[#8fa9bd] px-3.5 py-2 text-sm font-bold text-white shadow-lg shadow-blue-500/25 transition hover:brightness-110"
             >
               <ShoppingCart className="h-4 w-4" />
               <span className="hidden sm:inline">Cart</span>
@@ -371,7 +428,12 @@ export function Storefront() {
             </button>
           </div>
         </div>
+        {mobileMenuOpen && <div className="border-t border-white/10 bg-[#0b172a] px-4 py-3 xl:hidden"><div className="grid grid-cols-2 gap-1 sm:grid-cols-3">{['Home', 'AI & Productivity', 'Video Editing', 'Gift Cards', 'SVG', 'Streaming Accounts', 'IPTV', 'Smart Projectors', 'All Products'].map((item) => <a key={item} href={item === 'Home' ? '#' : '#products'} onClick={() => { setMobileMenuOpen(false); if (item !== 'Home') setCategory(item === 'All Products' ? 'all' : item) }} className="rounded-lg px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-white/10 hover:text-white">{item}</a>)}</div></div>}
       </header>
+
+      <div className="sticky top-16 z-20 overflow-x-auto border-b border-slate-300/20 bg-gradient-to-r from-[#aebdca]/90 via-[#e3e8ec]/90 to-[#8799aa]/90 px-4 py-2 text-[#0a1b31] shadow-lg backdrop-blur-xl">
+        <div className="mx-auto flex min-w-max max-w-7xl items-center justify-center gap-2 text-xs font-bold"><span className="mr-2 uppercase tracking-[.18em] text-[#41556a]">Discover</span>{['Trending Now', '🔥 Hot', '⭐ Best Sellers', '💰 Discounts', '✨ Fresh Arrivals'].map((item, i) => <button key={item} onClick={() => { setSort(i === 2 ? 'availability' : i === 3 ? 'price-low' : 'featured'); document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' }) }} className={cn('rounded-full px-4 py-1.5 transition hover:bg-[#102a49] hover:text-white', i === 0 && 'bg-[#102a49] text-white')}>{item}</button>)}</div>
+      </div>
 
       {/* Hero Section */}
       <section className="relative overflow-hidden border-b border-white/5">
@@ -656,6 +718,11 @@ export function Storefront() {
           </div>
         </div>
 
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 backdrop-blur-xl">
+          <div className="flex items-center gap-2 text-xs text-slate-400"><SlidersHorizontal className="h-4 w-4 text-slate-300" /> Filter: <button onClick={() => setCategory('all')} className="rounded-lg bg-white/10 px-3 py-1.5 text-slate-200">{category === 'all' ? 'All categories' : category}</button></div>
+          <label className="flex items-center gap-2 text-xs text-slate-400">Sort by <select value={sort} onChange={(e) => setSort(e.target.value)} className="rounded-lg border border-white/10 bg-[#122138] px-3 py-1.5 text-slate-200 outline-none"><option value="featured">Featured</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option><option value="availability">In stock first</option></select></label>
+        </div>
+
         {loading ? (
           <div className="grid h-64 place-items-center text-sm text-slate-400">
             <Loader2 className="mr-2 h-6 w-6 animate-spin text-blue-400" />
@@ -675,7 +742,7 @@ export function Storefront() {
                 return (
                   <article
                     key={p.id}
-                    className="group relative flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] transition hover:border-blue-500/30 hover:bg-white/[0.06]"
+                    className="liquid-card group relative flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.045] transition duration-300 hover:-translate-y-1 hover:border-[#8fa9bd]/60 hover:bg-white/[0.08]"
                   >
                     <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-slate-800/50 to-slate-900/50">
                       {p.image ? (
@@ -699,6 +766,7 @@ export function Storefront() {
                           {p.region}
                         </span>
                       )}
+                      <button aria-label={`Add ${p.name} to wishlist`} onClick={() => toggleWishlist(p.id)} className="absolute right-2.5 top-2.5 z-10 grid h-8 w-8 place-items-center rounded-full border border-white/20 bg-[#081426]/70 text-white backdrop-blur-md transition hover:scale-110"> <Heart className={cn('h-4 w-4', wishlist.includes(p.id) && 'fill-rose-400 text-rose-400')} /></button>
                     </div>
                     <div className="flex flex-1 flex-col p-3.5">
                       <div className="flex items-center justify-between text-[10px] font-mono">
@@ -714,6 +782,7 @@ export function Storefront() {
                       <h3 className="mt-2 line-clamp-2 text-sm font-semibold leading-snug text-white" title={p.name}>
                         {p.name}
                       </h3>
+                      <p className="mt-1 line-clamp-2 min-h-8 text-[11px] leading-relaxed text-slate-400">{p.description || 'Premium verified digital product with instant delivery.'}</p>
                       <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
                         <span className="font-mono">{p.sku}</span>
                         <span className={cn(p.stock > 0 ? 'text-emerald-400' : 'text-red-400')}>
@@ -732,14 +801,7 @@ export function Storefront() {
                           )}
                         </div>
                       </div>
-                      <button
-                        onClick={() => addToCart(p)}
-                        disabled={p.stock <= 0}
-                        className="mt-3 inline-flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-violet-600 py-2 text-xs font-bold text-white shadow-lg shadow-blue-500/20 transition hover:brightness-110 disabled:opacity-40"
-                      >
-                        <ShoppingCart className="h-3.5 w-3.5" />
-                        Add to Cart
-                      </button>
+                      <div className="mt-3 grid grid-cols-[1fr_auto] gap-2"><button onClick={() => addToCart(p)} disabled={p.stock <= 0} className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-[#315b85] to-[#8fa9bd] py-2 text-xs font-bold text-white shadow-lg shadow-blue-500/20 transition hover:brightness-110 disabled:opacity-40"><ShoppingCart className="h-3.5 w-3.5" /> Add to Cart</button><button aria-label={`Quick view ${p.name}`} onClick={() => setQuickView(p)} className="grid place-items-center rounded-lg border border-white/10 bg-white/5 px-2 text-slate-300 transition hover:bg-white/10 hover:text-white"><Eye className="h-4 w-4" /></button></div>
                     </div>
                   </article>
                 )
@@ -761,7 +823,7 @@ export function Storefront() {
       </section>
 
       {/* Smart Projectors Section */}
-      <SmartProjectorsSection products={products.filter((p) => p.category === 'Smart Projectors')} />
+      <SmartProjectorsSection products={products.filter((p) => p.category === 'Smart Projectors')} onAdd={addToCart} />
 
       {/* AI Tools Section */}
       <section className="mx-auto max-w-7xl px-4 py-12 lg:px-6">
@@ -799,6 +861,12 @@ export function Storefront() {
               </button>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 py-10 lg:px-6" id="support">
+        <div className="relative overflow-hidden rounded-3xl border border-[#91aabd]/30 bg-gradient-to-br from-[#132a47] via-[#0b1729] to-[#182535] p-7 shadow-[0_20px_70px_rgba(31,87,135,.18)] lg:p-10">
+          <div className="relative grid gap-8 lg:grid-cols-[1.1fr_1fr] lg:items-center"><div><span className="text-xs font-bold uppercase tracking-[.2em] text-[#a7c4d8]">Concierge support</span><h2 className="mt-3 text-3xl font-extrabold text-white lg:text-4xl">Need Help? We&apos;re Here for You.</h2><p className="mt-3 max-w-xl text-sm leading-relaxed text-slate-300">Have a question about a product, order, subscription, or payment? Our support team is ready to help.</p><div className="mt-6 flex flex-wrap gap-3"><a href="https://wa.me/923341079333" target="_blank" rel="noopener noreferrer" className="premium-button"><MessageCircle className="h-4 w-4" /> WhatsApp</a><a href="mailto:playbeatdigital@proton.me" className="premium-button"><Mail className="h-4 w-4" /> Email Support</a><a href="https://t.me/playbeatdigital" target="_blank" rel="noopener noreferrer" className="premium-button"><Send className="h-4 w-4" /> Telegram</a></div></div><div className="grid grid-cols-2 gap-3"><a href="/contact" className="support-card"><span>Contact Form</span><ChevronRight className="h-4 w-4" /></a><a href="/contact#faq" className="support-card"><span>FAQ</span><ChevronRight className="h-4 w-4" /></a><a href="/contact" className="support-card col-span-2"><Headphones className="h-4 w-4 text-[#a7c4d8]" /><span>Customer Support</span><ChevronRight className="ml-auto h-4 w-4" /></a></div></div>
         </div>
       </section>
 
@@ -980,6 +1048,8 @@ export function Storefront() {
         onCheckout={handleCheckout}
       />
 
+      <Dialog open={!!quickView} onOpenChange={(v) => !v && setQuickView(null)}><DialogContent className="border-white/10 bg-[#0c1a2d]/95 text-white backdrop-blur-xl"><DialogHeader><DialogTitle>{quickView?.name}</DialogTitle></DialogHeader>{quickView && <div className="space-y-4"><div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">{quickView.image ? <img src={quickView.image} alt={quickView.name} className="h-56 w-full object-cover" /> : <div className="grid h-56 place-items-center text-5xl">✦</div>}</div><p className="text-sm leading-relaxed text-slate-300">{quickView.description || 'Premium verified digital product with instant delivery.'}</p><div className="flex items-center justify-between"><span className="text-2xl font-bold text-[#b9d2e2]">{formatPrice(quickView.price, currency)}</span><Button onClick={() => { addToCart(quickView); setQuickView(null) }} className="premium-button">Add to Cart</Button></div></div>}</DialogContent></Dialog>
+
       {/* Confirmation */}
       <Dialog open={!!confirmation} onOpenChange={(v) => !v && setConfirmation(null)}>
         <DialogContent className="border-emerald-500/30 bg-[#0f172a]/95 text-white backdrop-blur-xl">
@@ -1014,7 +1084,7 @@ export function Storefront() {
 }
 
 // Smart Projectors section — displays real projector products with images
-function SmartProjectorsSection({ products }: { products: StoreProduct[] }) {
+function SmartProjectorsSection({ products, onAdd }: { products: StoreProduct[]; onAdd: (product: StoreProduct) => void }) {
   const [showAll, setShowAll] = useState(false)
   const display = showAll ? products : products.slice(0, 8)
   if (products.length === 0) return null
@@ -1107,6 +1177,7 @@ function SmartProjectorsSection({ products }: { products: StoreProduct[] }) {
                   </div>
                 </div>
                 <button
+                  onClick={() => onAdd(p)}
                   disabled={isSoldOut}
                   className="mt-3 inline-flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 py-2 text-xs font-bold text-white shadow-lg shadow-cyan-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
                 >
